@@ -4,6 +4,7 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
 
@@ -20,7 +21,8 @@ public class WindowWordCount {
                 .timeWindow(Time.seconds(5))
                 .sum(1);
 
-        dataStream.print();
+//        dataStream.print();
+        dataStream.addSink(new PrintSinkFunction<>()).name("Print to Std. Out");
 
         env.execute("Window WordCount");
     }
