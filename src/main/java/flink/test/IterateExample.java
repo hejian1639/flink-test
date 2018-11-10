@@ -85,8 +85,7 @@ public class IterateExample {
 
 		// apply the step function to get the next Fibonacci number
 		// increment the counter and split the output with the output selector
-		SplitStream<Tuple5<Integer, Integer, Integer, Integer, Integer>> step = it.map(new Step())
-				.split(new MySelector());
+		SplitStream<Tuple5<Integer, Integer, Integer, Integer, Integer>> step = it.map(new Step()).split(new MySelector());
 
 		// close the iteration by selecting the tuples that were directed to the
 		// 'iterate' channel in the output selector
