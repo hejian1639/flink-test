@@ -18,6 +18,7 @@
 package flink.test.wordcount;
 
 import flink.test.wordcount.util.WordCountData;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -44,6 +45,7 @@ import org.apache.flink.util.OutputTag;
  * <li>write and use user-defined functions.
  * </ul>
  */
+@Slf4j
 public class SideOutputWordCount {
 
     // *************************************************************************
@@ -61,6 +63,7 @@ public class SideOutputWordCount {
 
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
 
         // make parameters available in the web interface
         env.getConfig().setGlobalJobParameters(params);
@@ -77,9 +80,30 @@ public class SideOutputWordCount {
             text = env.fromElements(WordCountData.WORDS);
         }
 
-        SingleOutputStreamOperator<Tuple2<String, Integer>> tokenized = text.process(new Tokenizer());
-        tokenized.getSideOutput(even).map(s -> new Tuple2(s, 1)).returns(Types.TUPLE(Types.STRING, Types.INT)).keyBy(0).sum(1).print();
-        tokenized.getSideOutput(odd).map(s -> new Tuple2(s, 1)).returns(Types.TUPLE(Types.STRING, Types.INT)).keyBy(0).sum(1).print();
+        SingleOutputStreamOperator<String> tokenized = text.process(new Tokenizer());
+        tokenized.map(s -> {
+//            log.info("all data thread " + Thread.currentThread().getId());
+            return new Tuple2<String,Integer>(s, 1);
+        }).returns(Types.TUPLE(Types.STRING, Types.INT)).keyBy(0).reduce((value1, value2) -> {
+            log.info("all data thread " + Thread.currentThread().getId());
+            return new Tuple2(value1.f0, value1.f1 + value2.f1);
+        }).print();
+        tokenized.getSideOutput(even).map(
+                s -> {
+                    log.info("even thread " + Thread.currentThread().getId());
+                    return new Tuple2<String,Integer>(s, 1);
+                }).returns(Types.TUPLE(Types.STRING, Types.INT)).keyBy(0).reduce((value1, value2) -> {
+            log.info("all data thread " + Thread.currentThread().getId());
+            return new Tuple2(value1.f0, value1.f1 + value2.f1);
+        }).print();
+        tokenized.getSideOutput(odd).map(
+                s -> {
+                    log.info("odd thread " + Thread.currentThread().getId());
+                    return new Tuple2<String,Integer>(s, 1);
+                }).returns(Types.TUPLE(Types.STRING, Types.INT)).keyBy(0).reduce((value1, value2) -> {
+            log.info("all data thread " + Thread.currentThread().getId());
+            return new Tuple2(value1.f0, value1.f1 + value2.f1);
+        }).print();
 
         // execute program
         System.out.println(env.getExecutionPlan());
@@ -90,12 +114,12 @@ public class SideOutputWordCount {
     // USER FUNCTIONS
     // *************************************************************************
 
-    static final class Tokenizer extends ProcessFunction<String, Tuple2<String, Integer>> {
+    static final class Tokenizer extends ProcessFunction<String, String> {
         private static final long serialVersionUID = 1L;
 
 
         @Override
-        public void processElement(String value, Context ctx, Collector<Tuple2<String, Integer>> out) {
+        public void processElement(String value, Context ctx, Collector<String> out) {
             String[] tokens = value.toLowerCase().split("\\W+");
 
             // emit the pairs
@@ -106,6 +130,8 @@ public class SideOutputWordCount {
                     ctx.output(odd, token);
 
                 }
+                out.collect(token);
+
             }
 
         }

@@ -17,15 +17,14 @@
 
 package flink.test.wordcount;
 
+import flink.test.PrintSinkFunction;
 import flink.test.wordcount.util.WordCountData;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.SplitStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.Collector;
@@ -49,6 +48,7 @@ import java.util.List;
  * <li>write and use user-defined functions.
  * </ul>
  */
+@Slf4j
 public class WordCount {
 
     // *************************************************************************
@@ -62,6 +62,7 @@ public class WordCount {
 
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
 
         // make parameters available in the web interface
         env.getConfig().setGlobalJobParameters(params);
@@ -81,13 +82,14 @@ public class WordCount {
         SplitStream<Tuple2<String, Integer>> step = text.flatMap(new Tokenizer()).split(new MySelector());
 
         step.select("even").keyBy(0).reduce((value1, value2) -> {
-            System.out.println("even thread " + Thread.currentThread().getId());
+//            System.out.println("even thread " + Thread.currentThread().getId());
             return new Tuple2<>(value1.f0, value1.f1 + value2.f1);
-        }).print();
+        }).addSink(new PrintSinkFunction());
+
         step.select("odd").keyBy(0).reduce((value1, value2) -> {
-            System.out.println("odd thread " + Thread.currentThread().getId());
+//            System.out.println("odd thread " + Thread.currentThread().getId());
             return new Tuple2<>(value1.f0, value1.f1 + value2.f1);
-        }).print();
+        }).addSink(new PrintSinkFunction());
 
         // execute program
         System.out.println(env.getExecutionPlan());
