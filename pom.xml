@@ -132,7 +132,7 @@ under the License.
 		<dependency>
 			<groupId>org.mybatis</groupId>
 			<artifactId>mybatis</artifactId>
-			<version>3.3.0</version>
+			<version>3.5.6</version>
 		</dependency>
 		<dependency>
 			<groupId>ru.yandex.clickhouse</groupId>
